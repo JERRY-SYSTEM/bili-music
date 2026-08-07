@@ -157,7 +157,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 ),
                 label: Text(_showAllCollections ? '收起歌单' : '展开全部歌单'),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF7A8598),
+                  foregroundColor: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant,
                   textStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -773,6 +775,8 @@ class _ProfileSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       children: <Widget>[
         Expanded(
@@ -799,7 +803,7 @@ class _ProfileSectionHeader extends StatelessWidget {
           child: Icon(
             BmIcons.importright,
             size: 20,
-            color: Colors.black.withValues(alpha: 0.6),
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
         Material(
@@ -812,7 +816,7 @@ class _ProfileSectionHeader extends StatelessWidget {
               height: 38,
               child: Icon(
                 Icons.add_rounded,
-                color: Colors.black.withValues(alpha: 0.6),
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
