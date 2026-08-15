@@ -21,7 +21,6 @@ class PlayerAudioSessionCoordinator {
     required this._pause,
   });
 
-
   final PlayerAudioEngine _audioEngine;
   final AllowMixWithOthersReader _readAllowMixWithOthers;
   final BoolStateReader _readHasQueue;
@@ -39,6 +38,7 @@ class PlayerAudioSessionCoordinator {
   bool _isDisposed = false;
   bool _isDuckedForUnknownInterruption = false;
   bool _resumeAfterInterruption = false;
+  Future<void>? _activation;
   double _volumeBeforeUnknownInterruption = 1.0;
 
   Future<void> bind() async {
@@ -76,11 +76,32 @@ class PlayerAudioSessionCoordinator {
   }
 
   Future<void> activateForPlayback() async {
-    final AudioSession session = await AudioSession.instance;
-    await session.configure(
-      _audioSessionConfiguration(_readAllowMixWithOthers()),
+    final Future<void>? activation = _activation;
+    if (activation != null) {
+      await activation;
+      return;
+    }
+
+    final Future<void> nextActivation = _activateForPlayback();
+    _activation = nextActivation;
+    try {
+      await nextActivation;
+    } finally {
+      if (identical(_activation, nextActivation)) {
+        _activation = null;
+      }
+    }
+  }
+
+  Future<void> _activateForPlayback() async {
+    final AudioSession session = await AudioSession.instance.timeout(
+      const Duration(seconds: 2),
     );
-    await session.setActive(true);
+    // The category is configured by bind/refreshConfiguration. Reconfiguring
+    // it for every track replacement adds another platform-channel call at
+    // exactly the point where iOS may be transitioning the app in or out of
+    // suspension.
+    await session.setActive(true).timeout(const Duration(seconds: 2));
   }
 
   Future<void> refreshConfiguration() async {

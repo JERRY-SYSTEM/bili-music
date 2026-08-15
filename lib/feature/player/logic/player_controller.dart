@@ -172,7 +172,7 @@ class PlayerController extends Notifier<PlayerState>
       return;
     }
 
-    await _audioSessionCoordinator.activateForPlayback();
+    await _activateAudioSessionForPlayback();
     await _audioEngine.play();
   }
 
@@ -778,7 +778,7 @@ class PlayerController extends Notifier<PlayerState>
 
     // Keep the iOS playback session alive while resolving the next stream.
     // Stopping first creates a silent gap in which iOS can suspend the app.
-    await _audioSessionCoordinator.activateForPlayback();
+    await _activateAudioSessionForPlayback();
     if (!_isCurrentGeneration(effectiveGeneration)) {
       return false;
     }
@@ -864,7 +864,7 @@ class PlayerController extends Notifier<PlayerState>
       _publishMediaSession();
 
       if (autoplay) {
-        await _audioSessionCoordinator.activateForPlayback();
+        await _activateAudioSessionForPlayback();
         await _audioEngine.play();
       } else {
         await _audioEngine.pause();
@@ -1404,7 +1404,7 @@ class PlayerController extends Notifier<PlayerState>
         if (!_isCurrentGeneration(generation)) {
           return;
         }
-        await _audioSessionCoordinator.activateForPlayback();
+        await _activateAudioSessionForPlayback();
         await _audioEngine.play();
         return;
       }
@@ -1412,6 +1412,21 @@ class PlayerController extends Notifier<PlayerState>
       await skipToNext();
     } finally {
       _isHandlingPlaybackCompleted = false;
+    }
+  }
+
+  Future<void> _activateAudioSessionForPlayback() async {
+    try {
+      await _audioSessionCoordinator.activateForPlayback();
+    } on Object catch (error) {
+      // Audio session activation helps iOS keep the isolate alive, but a
+      // stalled platform call must never prevent a local file or remote URL
+      // from being opened. media_kit can still report the actual playback
+      // result after this best-effort activation.
+      _logPlayerEvent(
+        'audio-session:activation-failed',
+        details: <String, Object?>{'error': error},
+      );
     }
   }
 

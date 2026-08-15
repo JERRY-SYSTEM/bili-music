@@ -17,7 +17,7 @@ void main() {
   setUp(() async => directory = await Directory.systemTemp.createTemp());
   tearDown(() async => directory.delete(recursive: true));
 
-  test('online exact cache retains remote qualities and preference', () async {
+  test('online exact cache is loaded without waiting for remote', () async {
     final _RecordingRepository remote = _RecordingRepository(_loadResult());
     final PlayerAudioCacheRepository cache = _cache(directory);
     final AudioStreamInfo stream = _loadResult().audioStream;
@@ -32,26 +32,29 @@ void main() {
       isOffline: () async => false,
     ).resolveQueueEntry(_item(), preferredQualityId: 30232);
 
-    expect(remote.calls, 1);
-    expect(remote.preference, PlayerAudioQualityPreference.k132);
-    expect(remote.preferredQualityId, 30232);
+    expect(remote.calls, 0);
+    expect(remote.preference, isNull);
+    expect(remote.preferredQualityId, isNull);
     expect(entry.cachedFile?.path, file.path);
-    expect(entry.audioStream.availableQualities, hasLength(2));
+    expect(entry.audioStream.availableQualities, hasLength(1));
   });
 
-  test('online missing selected cache does not use another quality', () async {
+  test('online uses an available cached quality before remote', () async {
     final PlayerAudioCacheRepository cache = _cache(directory);
     await cache.cacheAudio(
       item: _item(),
       audioStream: _stream(qualityId: 30280, bandwidth: 192000),
     );
+    final _RecordingRepository remote = _RecordingRepository(_loadResult());
     final ResolvedQueueEntry entry = await _loader(
-      repository: _RecordingRepository(_loadResult()),
+      repository: remote,
       cache: cache,
       isOffline: () async => false,
     ).resolveQueueEntry(_item());
 
-    expect(entry.cachedFile, isNull);
+    expect(remote.calls, 0);
+    expect(entry.cachedFile, isNotNull);
+    expect(entry.audioStream.qualityId, 30280);
   });
 
   test(
@@ -166,7 +169,7 @@ void main() {
     expect(result, isNull);
   });
 
-  test('offline entry is not retained after reconnecting', () async {
+  test('disk cache remains playable after connectivity changes', () async {
     final PlayerAudioCacheRepository cache = _cache(directory);
     await cache.cacheAudio(
       item: _item(),
@@ -185,8 +188,8 @@ void main() {
     final ResolvedQueueEntry resolved = await loader.resolveQueueEntry(_item());
 
     expect(cached.audioStream.availableQualities, hasLength(1));
-    expect(remote.calls, 1);
-    expect(resolved.audioStream.availableQualities, hasLength(2));
+    expect(remote.calls, 0);
+    expect(resolved.audioStream.availableQualities, hasLength(1));
   });
 }
 

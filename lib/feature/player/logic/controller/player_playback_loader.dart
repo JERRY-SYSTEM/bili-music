@@ -79,6 +79,21 @@ class PlayerPlaybackLoader {
       preference: qualityPreference,
       preferredQualityId: preferredQualityId,
     );
+
+    // A disk cache must not depend on the current network state. In
+    // particular, iOS may temporarily leave Dart sockets unusable after a
+    // long background playback session. Looking up the cache after an API
+    // request made cached tracks fail together with the network request.
+    final CachedAudio? diskCache = await _audioCacheRepository
+        .lookupCachedAudio(
+          item: item,
+          preference: qualityPreference,
+          preferredQualityId: preferredQualityId,
+        );
+    if (diskCache != null) {
+      return _entryFromCache(item, diskCache);
+    }
+
     final bool offline = await _isOffline();
     if (offline) {
       if (!item.hasIdentity) {
@@ -153,6 +168,13 @@ class PlayerPlaybackLoader {
     if (diskCache == null) {
       throw const BiliPlayerException('设备处于离线状态，且没有可用的音频缓存。');
     }
+    return _entryFromCache(item, diskCache);
+  }
+
+  ResolvedQueueEntry _entryFromCache(
+    PlayableItem item,
+    CachedAudio diskCache,
+  ) {
     final AudioCacheMetadata metadata = diskCache.metadata;
     return ResolvedQueueEntry(
       item: item.copyWith(
